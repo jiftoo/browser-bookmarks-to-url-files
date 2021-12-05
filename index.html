@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>URL script generator</title>
+		<script type="text/javascript" src="./zip.min.js"></script>
+		<script type="text/javascript" src="./filesaver.min.js"></script>
+	</head>
+	<body>
+		<main>
+			<h1>Open the .html file exported by Chrome</h1>
+			<input type="file" id="fileopen" />
+			<h3>Next, press this button to download an archive contatining your shortcuts</h3>
+			<button id="download" disabled>Download archive</button>
+			<div id="tmpDom" style="visibility: hidden"></div>
+		</main>
+		<script>
+			const makeUrl = (url) => {
+				return `\
+			[{000214A0-0000-0000-C000-000000000046}]
+			Prop3=19,11
+			[InternetShortcut]
+			IDList=
+			URL=${url}\
+						`;
+			};
+			document.getElementById("fileopen").value = null;
+			window.mapped = null;
+			document.getElementById("download").disabled = true;
+			document.getElementById("fileopen").onchange = (ev) => {
+				const file = ev.target.files[0];
+				const reader = new FileReader();
+				reader.onload = () => {
+					const domRoot = document.getElementById("tmpDom");
+					domRoot.innerHTML = reader.result;
+					console.log(domRoot);
+
+					// parse links
+					window.mapped = [...domRoot.getElementsByTagName("a")].map((link) => {
+						return [link.textContent, makeUrl(link.href)];
+					});
+					document.getElementById("download").disabled = false;
+				};
+				reader.readAsText(file);
+			};
+			document.getElementById("download").onclick = async () => {
+				const archive = new zip.ZipWriter(new zip.Data64URIWriter("application/zip"));
+				await Promise.all(
+					window.mapped.map(([name, data]) => {
+						const rnd = Math.random().toString().split(".")[1].substring(0, 6);
+						return archive.add(name + rnd + ".url", new zip.TextReader(data));
+					})
+				);
+				console.log("asd");
+				const a = await archive.close();
+				saveAs(a, "links.zip");
+			};
+		</script>
+	</body>
+</html>
